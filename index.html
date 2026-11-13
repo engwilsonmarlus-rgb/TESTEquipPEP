@@ -385,7 +385,6 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
   'use strict';
   var C = window.Core;
   var VERSAO = 'V 1.0';
-  var USER = 'admin0000', PASS = 'admin0000'; // login provisório da fase de teste
   /* site de teste (ex.: /TESTEquipPEP/) guarda os dados separados do oficial no mesmo aparelho */
   var NS = /test/i.test((typeof location !== 'undefined' && location.pathname) || '') ? '_teste' : '';
   var LS_STATE = 'pcapp_state_v1' + NS, LS_LOGIN = 'pcapp_login_v1' + NS;
@@ -466,7 +465,7 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
     if (e.key !== LS_STATE || !e.newValue) return;
     try { var m = merge(st, JSON.parse(e.newValue)); if (JSON.stringify(m) !== JSON.stringify(st)) { st = m; softRender(); } } catch (x) { }
   });
-  var logged = lsGet(LS_LOGIN) === '1';
+  var logged = true; // sem tela de login: o app abre direto
   var hist = [], view = 'home', mesSel = null, fp = null, sheet = null;
 
   /* ---------- nuvem (conta claude.ai) e downloads ---------- */
@@ -651,12 +650,6 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
     return '<header class="top">' + back + '<h1>EquipPEP</h1><span class="sync" id="sync">' + syncTxt() + '</span></header>' +
       '<div class="wrap">' + body + '</div>' +
       '<nav class="bot">' + tabs.map(function (t) { return '<button class="' + (view === t[0] ? 'on' : '') + '" onclick="A.go(\'' + t[0] + '\')"><span class="ic">' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</nav>';
-  }
-  function vLogin() {
-    return '<div class="login"><div class="logo">💼</div><h2 style="text-align:center">EquipPEP</h2><p class="muted" style="text-align:center">Previsão e prestação de contas · Engemaximo<br>versão de teste</p>' +
-      '<label class="f">Usuário</label><input class="i" id="lu" autocomplete="username" autocapitalize="none">' +
-      '<label class="f">Senha</label><input class="i" id="lp" type="password" autocomplete="current-password">' +
-      '<div class="err" id="le"></div><button class="btn" onclick="A.login()">Entrar</button></div>';
   }
   function vSetup() {
     var ult = C.addDays(hoje().slice(0, 8) + '01', -1);
@@ -849,9 +842,8 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
       '<div class="card"><b>Cópia de segurança</b><p class="muted">' + (cloud.db ? 'Seus lançamentos já ficam salvos na sua conta. ' : '') + 'O backup leva tudo, inclusive as fotos, num arquivo que você pode guardar no Drive ou no WhatsApp.</p>' +
       '<button class="btn sec" onclick="A.backup()">⬇️ Baixar backup</button>' +
       '<label class="btn sec" style="text-align:center">⬆️ Restaurar backup<input type="file" accept=".json,application/json" style="display:none" onchange="A.restaurar(this.files[0])"></label></div>' +
-      '<button class="btn vm" onclick="A.sair()">Sair</button>' +
       '<button class="btn vm" style="background:#c0392b;color:#fff" onclick="A.zerar()">🗑️ Zerar tudo</button>' +
-      '<p class="muted" style="text-align:center;margin-top:16px">Versão de teste · login provisório</p>';
+      '<p class="muted" style="text-align:center;margin-top:16px">Versão de teste</p>';
     return shell(b);
   }
 
@@ -905,7 +897,6 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
 
   function render() {
     var app = $('#app');
-    if (!logged) { app.innerHTML = vLogin(); bindLogin(); return; }
     if (!st.perfil.nome) { app.innerHTML = vSetup(); return; }
     var body = view === 'prevs' ? vPrevs() : view === 'novaPrev' ? vNovaPrev() : view === 'prest' ? vPrest() : view === 'ajustes' ? vAjustes() : vHome();
     app.innerHTML = body + vSheet();
@@ -914,9 +905,6 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
   function rerenderSheet() {
     var ov = document.querySelector('.ov'); if (ov) ov.remove();
     if (sheet) { var d = document.createElement('div'); d.innerHTML = vSheet(); document.body.querySelector('#app').appendChild(d.firstChild); hydrateThumbs(); }
-  }
-  function bindLogin() {
-    ['#lu', '#lp'].forEach(function (s) { var e = $(s); if (e) e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') A.login(); }); });
   }
 
   /* ---------- ações ---------- */
@@ -935,11 +923,6 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
       var fn = el.dataset.fn;
       if (fn && A[fn]) A[fn].apply(null, JSON.parse(el.dataset.pre || '[]').concat([iso]).concat(JSON.parse(el.dataset.post || '[]')));
     },
-    login: function () {
-      var u = $('#lu').value.trim(), p = $('#lp').value;
-      if (u === USER && p === PASS) { logged = true; lsSet(LS_LOGIN, '1'); view = 'home'; render(); }
-      else $('#le').textContent = 'Usuário ou senha incorretos';
-    },
     zerar: function () {
       confirmar('Zerar tudo?', 'Isso apaga TODOS os dados do app: previsões, gastos, diárias, recebimentos, fotos das notas, saldo inicial e seu nome. Não dá para desfazer. Se quiser guardar uma cópia, cancele e use "Baixar backup" antes.', 'Sim, zerar tudo', async function () {
         var ids = st.gastos.map(function (g) { return g.foto; }).filter(Boolean);
@@ -949,7 +932,6 @@ details summary{cursor:pointer;color:var(--az);font-weight:600;padding:10px 0}
         view = 'home'; hist = []; mesSel = null; fp = null; render(); toast('Tudo zerado');
       });
     },
-    sair: function () { logged = false; lsDel(LS_LOGIN); render(); },
     setup: function () {
       var nome = $('#s_nome').value.trim(); if (!nome) { toast('Digite seu nome'); return; }
       st.perfilUpd = Date.now(); st.perfil = { nome: nome, codigo: '', cidade: 'TERESINA-PI' };
