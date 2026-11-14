@@ -261,10 +261,16 @@
   }
 
   /* ---------- telas ---------- */
+  /* modo noturno (fica salvo neste aparelho) */
+  var LS_TEMA = 'pcapp_tema' + NS;
+  function temaEscuro() { return document.documentElement.getAttribute('data-tema') === 'escuro'; }
+  function aplicarTema(t) { document.documentElement.setAttribute('data-tema', t === 'escuro' ? 'escuro' : 'claro'); }
+  aplicarTema(lsGet(LS_TEMA));
   function shell(body) {
     var tabs = [['home', '🏠', 'Início'], ['prevs', '📝', 'Previsões'], ['prest', '📊', 'Prestação'], ['ajustes', '⚙️', 'Ajustes']];
     var back = view !== 'home' ? '<button class="voltar" onclick="A.voltar()">‹ Voltar</button>' : '';
-    return '<header class="top">' + back + '<h1>EquipPEP</h1><span class="sync" id="sync">' + syncTxt() + '</span></header>' +
+    return '<header class="top">' + back + '<h1>EquipPEP</h1><span class="sync" id="sync">' + syncTxt() + '</span>' +
+      '<button class="tema" title="Modo noturno" aria-label="Alternar modo noturno" onclick="A.tema()">' + (temaEscuro() ? '☀️' : '🌙') + '</button></header>' +
       '<div class="wrap">' + body + '</div>' +
       '<nav class="bot">' + tabs.map(function (t) { return '<button class="' + (view === t[0] ? 'on' : '') + '" onclick="A.go(\'' + t[0] + '\')"><span class="ic">' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</nav>';
   }
@@ -528,6 +534,7 @@
   var confirmCb = null;
   function confirmar(titulo, msg, ok, cb) { sheet = { tipo: 'confirm', titulo: titulo, msg: msg, ok: ok }; confirmCb = cb; rerenderSheet(); }
   var A = window.A = {
+    tema: function () { var t = temaEscuro() ? 'claro' : 'escuro'; aplicarTema(t); lsSet(LS_TEMA, t); render(); },
     cal: function (el) {
       var v = el.dataset.v || hoje();
       cal = { el: el, v: el.dataset.v, y: +v.slice(0, 4), m: +v.slice(5, 7) }; calRender();
