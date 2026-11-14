@@ -26,6 +26,7 @@ header.top .sync{font-size:12px;opacity:.85}
 .saldo .lbl{opacity:.85;font-size:14px}.saldo .val{font-size:34px;font-weight:700;margin:4px 0}
 .saldos{margin-top:12px}.saldos .card{margin:0}
 .saldos .val{font-size:24px}
+.passou{color:#ffd166}
 .saldo.dia{background:linear-gradient(135deg,#b4610c,var(--lar))}
 .fech{display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
 .fech b{font-size:18px}
@@ -726,6 +727,18 @@ details summary{cursor:pointer;color:var(--azt);font-weight:600;padding:10px 0}
     var t = [nD ? nD + (nD > 1 ? ' diárias' : ' diária') : '', nM ? nM + (nM > 1 ? ' meias' : ' meia') : ''].filter(Boolean).join(' + ');
     return t || 'nenhuma lançada';
   }
+  /* quanto ainda falta das diárias do líder pagas no último depósito (vindo de uma previsão) */
+  function faltaDiariaTxt(ur, dd) {
+    if (!ur) return '';
+    var p = ur.prevId ? st.previsoes.find(function (x) { return x.id === ur.prevId; })
+      : st.previsoes.find(function (x) { return x.depositoRecebido && depDaPrev(x) === ur; });
+    if (!p) return '';
+    var c = C.calcPrevisao(p, p.saldoUsado), pago = c.L.d1, falta = C.r2(pago - dd.tot);
+    function nd(v) { var n = v / C.DIARIA; return (Math.round(n * 10) / 10).toLocaleString('pt-BR'); }
+    if (falta >= 0) return 'faltam ' + money(falta) + ' de diária<br>(' + nd(falta) + ' de ' + c.dias + ')';
+    var a = -falta;
+    return '<b class="passou">passou ' + money(a) + ' da previsão</b><br>(' + nd(a) + (a > C.DIARIA ? ' diárias' : ' diária') + ' a mais)';
+  }
   function qtdDiarias(ini, fim) {
     var nD = 0, nM = 0;
     Object.keys(st.diarias).forEach(function (d) { if (d >= ini && d <= fim) { if (st.diarias[d] === 'DIÁRIA') nD++; else if (st.diarias[d] === 'MEIA DIÁRIA') nM++; } });
@@ -740,10 +753,10 @@ details summary{cursor:pointer;color:var(--azt);font-weight:600;padding:10px 0}
     var ur = ultimoReceb(), dd = diariasDesde(ur ? (ur.criado || 0) : 0);
     var b = '<div class="grid2 saldos">' +
       '<div class="card saldo"><div class="lbl">Saldo − Diárias</div><div class="val">' + money(P.saldo) + '</div>' +
-      '<div class="sub">diárias do mês ' + money(P.tot.dia) + '</div></div>' +
+      '<div class="sub">' + faltaDiariaTxt(ur, dd) + '</div></div>' +
       '<div class="card saldo dia" onclick="A.go(\'prest\')" style="cursor:pointer"><div class="lbl">Diárias</div><div class="val">' + money(dd.tot) + '</div>' +
       '<div class="sub">' + dd.txt + (ur ? '<br>desde o depósito de ' + dCurto(ur.data) : '') + '</div></div></div>' +
-      '<div class="card fech"><span>' + mesN + ': saldo<br><small class="muted">recebido ' + money(P.recebido) + ' · gastos ' + money(gastoSemD) + '</small></span><b>' + money(saldoSemD) + '</b></div>';
+      '<div class="card fech"><span>' + mesN + ': saldo<br><small class="muted">recebido ' + money(P.recebido) + ' · gastos ' + money(gastoSemD) + ' · diárias do mês ' + money(P.tot.dia) + '</small></span><b>' + money(saldoSemD) + '</b></div>';
     var pv = (st.previsoes || []).filter(function (p) { return p.fim >= hj; }).sort(function (a, b) { return a.ini < b.ini ? -1 : 1; })[0];
     if (pv) {
       var c = C.calcPrevisao(pv, pv.saldoUsado);
