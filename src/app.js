@@ -77,6 +77,26 @@
     out.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
     return out;
   }
+  /* Backup restaurado depois de "Zerar tudo": os horários dos lançamentos precisam ficar
+     depois do zeramento para valer, mas sem perder a ordem entre eles (o quadro de diárias
+     depende de saber o que veio depois de cada depósito). Remapeia todos para (rz, agora]. */
+  function ajustarHorarios(b, rz, agora) {
+    var refs = [];
+    ['gastos', 'recebidos', 'previsoes'].forEach(function (L) {
+      (b[L] || []).forEach(function (x) {
+        if (!x.criado) x.criado = x.upd || 0;
+        if (!x.upd) x.upd = x.criado;
+        refs.push([x, 'criado'], [x, 'upd']);
+      });
+    });
+    Object.keys(b.diarias || {}).forEach(function (d) { if (!b.diariasUpd[d]) b.diariasUpd[d] = 0; refs.push([b.diariasUpd, d]); });
+    if (!b.perfilUpd) b.perfilUpd = 0; refs.push([b, 'perfilUpd']);
+    var vals = refs.map(function (r) { return r[0][r[1]] || 0; });
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    if (!refs.length || min > rz) return; // nada anterior ao zeramento: mantém como está
+    var ini = rz + 1, span = Math.max(1, agora - ini), largura = Math.max(1, max - min);
+    refs.forEach(function (r) { r[0][r[1]] = Math.floor(ini + ((r[0][r[1]] || 0) - min) / largura * span); });
+  }
   function softRender() { if (!sheet && view !== 'novaPrev' && logged) render(); }
   window.addEventListener('storage', function (e) {
     if (e.key !== LS_STATE || !e.newValue) return;
@@ -747,9 +767,8 @@
         var j = JSON.parse(await file.text()); if (!j || !j.st || !j.st.v) throw 0;
         confirmar('Restaurar backup?', 'Os lançamentos do backup serão juntados aos que já estão no app.', 'Restaurar', async function () {
           for (var k in (j.fotos || {})) { var b = await (await fetch(j.fotos[k])).blob(); await fotoPut(k, b); }
-          var t = Date.now(), b = Object.assign(blank(), j.st); // marca como novo para valer mesmo depois de "zerar tudo"
-          ['gastos', 'recebidos', 'previsoes'].forEach(function (L) { (b[L] || []).forEach(function (x) { x.upd = t; }); });
-          Object.keys(b.diarias || {}).forEach(function (d) { b.diariasUpd[d] = t; }); b.perfilUpd = t; b.resetAt = 0; b.apagados = {};
+          var b = Object.assign(blank(), j.st); b.diariasUpd = Object.assign({}, b.diariasUpd || {});
+          ajustarHorarios(b, st.resetAt || 0, Date.now()); b.perfilUpd = Date.now(); b.resetAt = 0; b.apagados = {}; // nome e saldo inicial do backup prevalecem
           st = merge(st, b); save(); view = 'home'; render(); toast('Backup restaurado');
         });
       } catch (e) { toast('Arquivo de backup inválido'); }
